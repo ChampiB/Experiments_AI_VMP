@@ -16,6 +16,9 @@ START_POS   = [6,2];
 STATES      = 22;   % Number of states
 ACTIONS     = 5;    % Number of actions: UP=1,DOWN=2,LEFT=3,RIGHT=4,STAY=5
 OUTCOMES    = 10;   % Number of outcomes
+YES         = 1;
+NO          = 0;
+TRIALS      = 15;
 
 % Load mapping from position to state index
 %--------------------------------------------------------------------------
@@ -34,26 +37,26 @@ START_STATE = STATES_INDEX(START_POS(1),START_POS(2));
 
 % prior beliefs about initial states: D 
 %--------------------------------------------------------------------------
-D{1} = ones(STATES,1) * 0.1 / (STATES - 1);
-D{1}(START_STATE,1) = 0.9;
+D{1} = ones(STATES,1) * NO / (STATES - 1);
+D{1}(START_STATE,1) = YES;
 
 % probabilistic mapping from hidden states to outcomes: A
 %--------------------------------------------------------------------------
-A{1} = ones(OUTCOMES,STATES) * 0.1 / (OUTCOMES - 1);    % distance
+A{1} = ones(OUTCOMES,STATES) * NO / (OUTCOMES - 1);    % distance
 for y = 1:size(MAZE,1)
     for x = 1:size(MAZE,2)
         if (MAZE(y,x) == 0)
             POS = [y,x];
             obs = mahattan_distance(POS, EXIT_POS);
-            A{1}(obs + 1, STATES_INDEX(y,x)) = 0.9;
+            A{1}(obs + 1, STATES_INDEX(y,x)) = YES;
         end
     end
 end
 
 % controlled transitions: B (up, down, left, right, stay)
 %--------------------------------------------------------------------------
-u    = [1 0; -1 0; 0 -1; 0 1; 0 0];               % allowable actions
-B{1} = ones(STATES,STATES,ACTIONS) * 0.1 / (STATES - 1);
+u    = [-1 0; 1 0; 0 -1; 0 1; 0 0];               % allowable actions
+B{1} = ones(STATES,STATES,ACTIONS) * NO / (STATES - 1);
 for y = 1:size(MAZE,1)
     for x = 1:size(MAZE,2)
         % allowable transitions from state s to state ss
@@ -64,12 +67,12 @@ for y = 1:size(MAZE,1)
             try
                 if (MAZE(y + u(k,1),x + u(k,2)) == 0)
                     ss = STATES_INDEX(y + u(k,1),x + u(k,2));
-                    B{1}(ss,s,k) = 0.9;
+                    B{1}(ss,s,k) = YES;
                 else
-                    B{1}(s,s,k) = 0.9;
+                    B{1}(s,s,k) = YES;
                 end
             catch
-                B{1}(s,s,k) = 0.9;
+                B{1}(s,s,k) = YES;
             end
         end
         end
@@ -94,6 +97,7 @@ for i2 = 1:ACTIONS
 %end
 end
 end
+
 % Execution time for 2-7 moves:
 % 2 --> 0.865816
 % 3 --> 5.069928
@@ -101,6 +105,12 @@ end
 % 5 --> 298.468461
 % 6 --> 2642.404988
 % 7 --> NEVER ENDED (CRASHED)
+
+% 2-5 moves - softmax leads to local minimum
+% 5   moves + softmax leads to local minimum
+% 4   moves + softmax leads to global minimum
+% 3   moves + softmax leads to state 19
+% 3   moves + softmax leads to state 13
 
 % priors: (negative cost) C:
 %--------------------------------------------------------------------------
@@ -125,7 +135,7 @@ mdp       = spm_MDP_check(mdp);
 % exploratory sequence (with experience and task set)
 %==========================================================================
 tic
-MDP = spm_maze_search(mdp,8,START_STATE,EXIT_STATE,128,1);
+MDP = spm_maze_search(mdp,TRIALS,START_STATE,EXIT_STATE,128,1);
 toc
 
 % show results in terms of path
@@ -221,7 +231,6 @@ h     = [];
 MS    = {};
 MC    = {};
 for p = 1:numel(MDP)
-    disp(MDP(p).u)
     %  display prior preferences
     %----------------------------------------------------------------------
     C     = MDP(p).C{1}(:,1);
@@ -234,7 +243,6 @@ for p = 1:numel(MDP)
     subplot(2,2,1),hold on
     s     = MDP(p).s;
     for t = 1:numel(s)
-        
         % location
         %------------------------------------------------------------------
         [i,j] = state_to_position(STATES_INDEX,s(t));
