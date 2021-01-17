@@ -7,6 +7,7 @@ consts = linspace(10,110);
 consts_exp = linspace(10,20);
 consts_lin = linspace(10,100);
 lin_coef = 10;
+k = 10;
 
 % Number of samples per slices
 nb_samples = 50;
@@ -15,6 +16,8 @@ draw_pi_gamma(G, betas, nb_samples);
 draw_pi_alpha(G, consts, nb_samples);
 draw_pi_alpha_exp(G, consts_exp, nb_samples);
 draw_pi_alpha_lin(G, consts_lin, nb_samples, lin_coef);
+draw_pi_alpha_sigmoid(G, consts, nb_samples, k);
+draw_pi_alpha_sigmoid_1_minus_p(G, consts, nb_samples, k);
 
 function draw_pi_gamma(G, betas, nb_samples)
     [~, columns] = size(betas);
@@ -105,3 +108,44 @@ function draw_pi_alpha_lin(G, consts, nb_samples, lin_coef)
     figure('Name','P(pi|alpha) Linear coefficient');
     scatter(x,y);
 end
+
+function draw_pi_alpha_sigmoid(G, consts, nb_samples, k)
+    [~, columns] = size(consts);
+    x = zeros(nb_samples * columns,1);
+    y = zeros(nb_samples * columns,1);
+    for i = 1:columns
+        % theta = c - G
+        theta = ones(2,1) * consts(i) - G;
+        % Sample 'nb_samples' categorical distributions
+        alphas = drchrnd(theta, nb_samples);
+        % Fill 'x' and 'y'
+        min = (i - 1) * nb_samples + 1;
+        max =  i      * nb_samples;
+        x(min:max) = ones(nb_samples,1) * consts(i);
+        t = ones(size(alphas)) - ones(size(alphas)) ./ (ones(size(alphas)) + exp(-k*alphas));
+        y(min:max) = t(1,:);
+    end
+    figure('Name','P(pi|alpha) Sigmoid');
+    scatter(x,y);
+end
+
+function draw_pi_alpha_sigmoid_1_minus_p(G, consts, nb_samples, k)
+    [~, columns] = size(consts);
+    x = zeros(nb_samples * columns,1);
+    y = zeros(nb_samples * columns,1);
+    for i = 1:columns
+        % theta = c - G
+        theta = ones(2,1) * consts(i) - G;
+        % Sample 'nb_samples' categorical distributions
+        alphas = drchrnd(theta, nb_samples);
+        % Fill 'x' and 'y'
+        min = (i - 1) * nb_samples + 1;
+        max =  i      * nb_samples;
+        x(min:max) = ones(nb_samples,1) * consts(i);
+        t = ones(size(alphas)) - ones(size(alphas)) ./ (ones(size(alphas)) + exp(-k*(1 - alphas)));
+        y(min:max) = t(1,:);
+    end
+    figure('Name','P(pi|alpha) Sigmoid (1-p)');
+    scatter(x,y);
+end
+
